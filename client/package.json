@@ -1,0 +1,17 @@
+{
+  "name": "gemini-play-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@colyseus/sdk": "^0.17.9",
+    "three": "^0.160.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}

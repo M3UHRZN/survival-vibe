@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crystal Rush</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div class="hud">
+      <section class="panel intro">
+        <p class="eyebrow">ISOMETRIC SURVIVAL PROTOTYPE</p>
+        <h1>Frontier Loop</h1>
+        <p class="copy">
+          Kaynak topla, hayvanlarla etkiles, XP kazan ve seviye atladikca build
+          yolunu sec.
+        </p>
+      </section>
+
+      <section class="panel stats">
+        <div class="bar-block">
+          <div class="bar-header">
+            <span>HP</span>
+            <strong data-health-label>100 / 100</strong>
+          </div>
+          <div class="bar danger">
+            <i data-health-fill></i>
+          </div>
+        </div>
+
+        <div class="bar-block">
+          <div class="bar-header">
+            <span>Level</span>
+            <strong data-level>1</strong>
+          </div>
+          <div class="bar">
+            <i data-xp-fill></i>
+          </div>
+          <small data-xp-label>0 / 40 XP</small>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <span>Status</span>
+            <strong data-status>Loading...</strong>
+          </div>
+          <div class="stat">
+            <span>Network</span>
+            <strong data-network-status>Offline</strong>
+          </div>
+          <div class="stat">
+            <span>Target</span>
+            <strong data-target>Nothing nearby</strong>
+          </div>
+          <div class="stat">
+            <span>Atk Speed</span>
+            <strong data-attack-speed>1.00x</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel inventory">
+        <h2>Inventory</h2>
+        <div class="inventory-grid">
+          <div class="stat">
+            <span>Wood</span>
+            <strong data-inv-wood>0</strong>
+          </div>
+          <div class="stat">
+            <span>Stone</span>
+            <strong data-inv-stone>0</strong>
+          </div>
+          <div class="stat">
+            <span>Gold</span>
+            <strong data-inv-gold>0</strong>
+          </div>
+          <div class="stat">
+            <span>Meat</span>
+            <strong data-inv-meat>0</strong>
+          </div>
+        </div>
+
+        <h2>Build</h2>
+        <div class="unlock-list">
+          <p><span>Path</span><strong data-path>Unchosen</strong></p>
+          <p><span>Tools</span><strong data-tools>Starter Axe</strong></p>
+          <p><span>Recipes</span><strong data-recipes>None</strong></p>
+        </div>
+      </section>
+    </div>
+
+    <div class="controls-note">
+      WASD hareket, Space veya E basili tut: vur/topla, B: build menu, Shift kos, R run sifirla.
+    </div>
+
+    <aside class="build-panel hidden" data-build-menu>
+      <div class="build-panel-head">
+        <div>
+          <p class="eyebrow">BUILD MENU</p>
+          <h2>Recipe sec ve yerlestir</h2>
+        </div>
+        <button class="panel-close" type="button" data-build-close>Close</button>
+      </div>
+      <p class="copy">
+        Recipe secildiginde yapi oyuncunun onunde uygun alana kurulur. `B` veya `Esc`
+        ile kapat.
+      </p>
+      <p class="build-empty" data-build-empty>
+        Henuz build recipe unlock edilmedi. Builder veya Prospector yolunda recipe ac.
+      </p>
+      <div class="build-list" data-build-options></div>
+    </aside>
+
+    <div class="overlay hidden" data-upgrade-overlay>
+      <div class="upgrade-card">
+        <p class="eyebrow">LEVEL UP</p>
+        <h2>Bir gelistirme sec</h2>
+        <p class="copy">
+          Universal secimler herkese uygundur. Path secimi Builder, Hunter veya
+          Prospector yoluna kilitler.
+        </p>
+        <div class="upgrade-grid" data-upgrade-options></div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

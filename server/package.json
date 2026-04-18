@@ -1,0 +1,13 @@
+{
+  "name": "gemini-play-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@colyseus/schema": "^4.0.7",
+    "colyseus": "^0.17.9"
+  }
+}
