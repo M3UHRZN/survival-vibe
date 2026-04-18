@@ -17,17 +17,22 @@ export class NetworkClient {
     onStatusChange = null,
     onInventoryChanged = null,
     onResourceStateChange = null,
+    onAnimalStateChange = null,
+    onDamageTaken = null,
   } = {}) {
     this.windowRef = windowRef;
     this.onStatusChange = onStatusChange;
     this.onInventoryChanged = onInventoryChanged;
     this.onResourceStateChange = onResourceStateChange;
+    this.onAnimalStateChange = onAnimalStateChange;
+    this.onDamageTaken = onDamageTaken;
 
     this.client = null;
     this.room = null;
     this.callbacks = null;
     this.playerSnapshots = new Map();
     this.resourceSnapshots = new Map();
+    this.animalSnapshots = new Map();
     this.sessionId = null;
     this.sequence = 0;
     this.lastInputSentAt = Number.NEGATIVE_INFINITY;
@@ -104,10 +109,11 @@ export class NetworkClient {
     );
   }
 
-  // Send an interact intent for a specific resource node.
-  // targetId     — resource index (same as server MapSchema key)
-  // nodeDamage   — player's current nodeDamage stat (trusted until Phase 6)
-  sendInteract(targetId, nodeDamage = 1) {
+  // Send an interact intent for a resource or animal.
+  // targetKind   — "resource" | "animal"
+  // nodeDamage   — player's nodeDamage stat (resources)
+  // animalDamage — player's animalDamage stat (animals)
+  sendInteract(targetId, nodeDamage = 1, animalDamage = 1, targetKind = "resource") {
     if (!this.room) {
       return;
     }
@@ -115,7 +121,7 @@ export class NetworkClient {
     this.sequence += 1;
     this.room.send(
       CLIENT_MESSAGE_TYPES.INTERACT,
-      createInteractMessage({ targetId, nodeDamage, seq: this.sequence }),
+      createInteractMessage({ targetId, targetKind, nodeDamage, animalDamage, seq: this.sequence }),
     );
   }
 
@@ -133,6 +139,10 @@ export class NetworkClient {
 
   getResourceSnapshots() {
     return this.resourceSnapshots;
+  }
+
+  getAnimalSnapshots() {
+    return this.animalSnapshots;
   }
 
   bindRoomCallbacks() {
@@ -161,10 +171,28 @@ export class NetworkClient {
       });
     });
 
+    // Animal state replication
+    this.callbacks.onAdd("animals", (animal, key) => {
+      this.animalSnapshots.set(key, snapshotAnimal(animal));
+      this._emitAnimalStateChange();
+
+      this.callbacks.onChange(animal, () => {
+        this.animalSnapshots.set(key, snapshotAnimal(animal));
+        this._emitAnimalStateChange();
+      });
+    });
+
     // Server → client inventory grant events
     this.room.onMessage(SERVER_MESSAGE_TYPES.INVENTORY_CHANGED, (data) => {
       if (this.onInventoryChanged) {
         this.onInventoryChanged(data);
+      }
+    });
+
+    // Server → client damage events (animal attacks on this player)
+    this.room.onMessage(SERVER_MESSAGE_TYPES.DAMAGE_TAKEN, (data) => {
+      if (this.onDamageTaken) {
+        this.onDamageTaken(data);
       }
     });
 
@@ -183,6 +211,7 @@ export class NetworkClient {
     this.callbacks = null;
     this.playerSnapshots.clear();
     this.resourceSnapshots.clear();
+    this.animalSnapshots.clear();
     this.sessionId = null;
     this.sequence = 0;
     this.lastInputSentAt = Number.NEGATIVE_INFINITY;
@@ -197,6 +226,12 @@ export class NetworkClient {
   _emitResourceStateChange() {
     if (this.onResourceStateChange) {
       this.onResourceStateChange(this.resourceSnapshots);
+    }
+  }
+
+  _emitAnimalStateChange() {
+    if (this.onAnimalStateChange) {
+      this.onAnimalStateChange(this.animalSnapshots);
     }
   }
 }

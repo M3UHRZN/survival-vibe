@@ -9,22 +9,24 @@ import { PlayerState } from "../state/player-state.js";
 import { SurvivalState } from "../state/survival-state.js";
 import { MovementSystem } from "../systems/movement-system.js";
 import { ResourceSystem } from "../systems/resource-system.js";
+import { AnimalSystem } from "../systems/animal-system.js";
 
 export class SurvivalRoom extends Room {
   maxClients = MAX_ROOM_SIZE;
   state = new SurvivalState();
   movementSystem = new MovementSystem();
   resourceSystem = new ResourceSystem();
+  animalSystem = new AnimalSystem();
   playerInputs = new Map();
 
   onCreate(options = {}) {
     this.state.tick = 0;
     this.state.worldSeed = Number.isInteger(options.worldSeed) ? options.worldSeed : 1;
 
-    // Populate server-authoritative resource state before any client joins.
+    // Populate server-authoritative resource and animal state before any client joins.
     this.resourceSystem.initResources(this.state.resources);
+    this.animalSystem.initAnimals(this.state.animals);
 
-    // Colyseus 0.17: register message handlers inside onCreate via this.onMessage().
     this.onMessage(CLIENT_MESSAGE_TYPES.MOVE, (client, payload) => {
       const current = this.playerInputs.get(client.sessionId) || normalizeMoveMessage();
       const next = normalizeMoveMessage(payload);
@@ -36,13 +38,23 @@ export class SurvivalRoom extends Room {
       this.playerInputs.set(client.sessionId, next);
     });
 
+    // Route INTERACT to the correct system based on targetKind.
     this.onMessage(CLIENT_MESSAGE_TYPES.INTERACT, (client, payload) => {
-      this.resourceSystem.handleInteract(
-        this.state.resources,
-        client,
-        payload,
-        this.state.players,
-      );
+      if (payload.targetKind === "animal") {
+        this.animalSystem.handleInteract(
+          this.state.animals,
+          client,
+          payload,
+          this.state.players,
+        );
+      } else {
+        this.resourceSystem.handleInteract(
+          this.state.resources,
+          client,
+          payload,
+          this.state.players,
+        );
+      }
     });
 
     this.setSimulationInterval(
@@ -78,6 +90,7 @@ export class SurvivalRoom extends Room {
     });
 
     this.resourceSystem.tick(this.state.resources, deltaSeconds);
+    this.animalSystem.tick(this.state.animals, this.state.players, this, deltaSeconds);
 
     this.state.tick += 1;
   }

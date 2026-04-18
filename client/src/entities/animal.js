@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { WORLD_LIMIT } from "../config/game-config.js";
-import { clampXZ, stampShadows } from "../utils/scene-utils.js";
+import { clampXZ, lerpAngle, stampShadows } from "../utils/scene-utils.js";
 
 export class AnimalEntity {
-  constructor(spawn, definition, worldLimit = WORLD_LIMIT) {
+  constructor(spawn, definition, worldLimit = WORLD_LIMIT, id = 0) {
+    this.id = id;
     this.type = spawn.type;
     this.definition = definition;
     this.worldLimit = worldLimit;
@@ -21,6 +22,11 @@ export class AnimalEntity {
     this.state = "idle";
     this.velocity = new THREE.Vector3();
     this.scratch = new THREE.Vector3();
+
+    // Interpolation targets — updated by syncState() when server-driven.
+    this._targetX = spawn.position[0];
+    this._targetZ = spawn.position[2];
+    this._targetRotation = 0;
 
     buildAnimalMesh(this.group, spawn.type);
     stampShadows(this.group);
@@ -44,15 +50,44 @@ export class AnimalEntity {
     this.state = "idle";
   }
 
-  update({ delta, playerPosition, aggroReduction, canDamagePlayer }) {
+  // Apply server-replicated state.  Called by WorldManager.syncAnimalStates().
+  syncState(serverX, serverZ, serverRotation, serverActive) {
+    if (serverActive && !this.active) {
+      this.active = true;
+      this.group.visible = true;
+    } else if (!serverActive && this.active) {
+      this.active = false;
+      this.group.visible = false;
+    }
+
+    if (serverActive) {
+      this._targetX = serverX;
+      this._targetZ = serverZ;
+      this._targetRotation = serverRotation;
+    }
+  }
+
+  update({ delta, playerPosition, aggroReduction, canDamagePlayer, serverDriven = false }) {
     if (!this.active) {
-      this.respawnRemaining -= delta;
-      if (this.respawnRemaining <= 0) {
-        this.reset();
+      if (!serverDriven) {
+        this.respawnRemaining -= delta;
+        if (this.respawnRemaining <= 0) {
+          this.reset();
+        }
       }
       return null;
     }
 
+    if (serverDriven) {
+      // Pure renderer: interpolate position and facing toward server-replicated targets.
+      const lerpFactor = 1 - Math.exp(-12 * delta);
+      this.group.position.x += (this._targetX - this.group.position.x) * lerpFactor;
+      this.group.position.z += (this._targetZ - this.group.position.z) * lerpFactor;
+      this.group.rotation.y = lerpAngle(this.group.rotation.y, this._targetRotation, 1 - Math.exp(-10 * delta));
+      return null;
+    }
+
+    // ─── Offline / single-player AI (unchanged) ───────────────────────────
     this.attackCooldown = Math.max(0, this.attackCooldown - delta);
     const distanceToPlayer = this.group.position.distanceTo(playerPosition);
 

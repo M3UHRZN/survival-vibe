@@ -34,12 +34,12 @@ export class WorldManager {
       (spawn, index) => new ResourceNode(spawn, RESOURCE_DEFINITIONS[spawn.type], index),
     );
     this.animals = buildAnimalSpawns(this.worldLimit).map(
-      (spawn) => new AnimalEntity(spawn, ANIMAL_DEFINITIONS[spawn.type], this.worldLimit),
+      (spawn, index) => new AnimalEntity(spawn, ANIMAL_DEFINITIONS[spawn.type], this.worldLimit, index),
     );
     this.remotePlayers = new Map();
     this.structures = [];
-    // Set to true once the server sends the first resource state snapshot.
-    // When true, resource.update() skips local respawn countdown.
+    // Set to true once server sends the first resource/animal state snapshot.
+    // When true resource.update and animal.update skip local simulation.
     this.serverDriven = false;
 
     this.selectionRing = createSelectionRing();
@@ -91,9 +91,10 @@ export class WorldManager {
         playerPosition,
         aggroReduction,
         canDamagePlayer,
+        serverDriven: this.serverDriven,
       });
 
-      if (attack && onPlayerDamaged) {
+      if (attack && onPlayerDamaged && !this.serverDriven) {
         onPlayerDamaged(attack);
       }
     }
@@ -154,6 +155,20 @@ export class WorldManager {
       const resource = this.resources[index];
       if (resource) {
         resource.syncState(snapshot.active, snapshot.health);
+      }
+    }
+  }
+
+  // Apply server-replicated animal state to client meshes.
+  // Called by GameApp whenever NetworkClient fires onAnimalStateChange.
+  syncAnimalStates(snapshots) {
+    this.serverDriven = true;
+
+    for (const [key, snapshot] of snapshots) {
+      const index = Number(key);
+      const animal = this.animals[index];
+      if (animal) {
+        animal.syncState(snapshot.x, snapshot.z, snapshot.rotation, snapshot.active);
       }
     }
   }

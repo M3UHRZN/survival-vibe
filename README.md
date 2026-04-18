@@ -1,7 +1,7 @@
 # Frontier Loop
 
-Three.js ile yazilan izometrik 3D survival prototipi. Proje artik `client / server / shared`
-ayrimina gecmis durumda ve ilk multiplayer omurgasi kurulmus halde.
+Three.js ile yazilan izometrik 3D survival prototipi. Proje `client / server / shared`
+ayrimina gecmis durumda. Multiplayer omurgasi Phase 3 (Resource Authority) seviyesine ulasti.
 
 ## Calistirma
 
@@ -71,14 +71,17 @@ Server tarafinda:
 
 Shared tarafinda:
 
-- `shared/constants/gameplay.js`: dunya limiti, hareket hizi, izometrik move basis
+- `shared/constants/gameplay.js`: dunya limiti, hareket hizi, izometrik move basis, interaction range
 - `shared/constants/network.js`: room adi, tick ve input hizlari
-- `shared/messages/`: move mesaji ve message type sabitleri
+- `shared/data/resource-spawns.js`: RESOURCE_DEFINITIONS + RESOURCE_SPAWNS (tek kaynak, Phase 3)
+- `shared/core/spawn-generator.js`: deterministik spawn algoritmasi (Phase 3)
+- `shared/messages/`: move + interact mesaji ve message type sabitleri
 
 ## Multiplayer Durumu
 
 Bu surumde aktif olan network omurgasi:
 
+**Phase 0-2 — Movement MVP:**
 - Colyseus room bootstrap
 - `join / leave`
 - server-authoritative player movement
@@ -88,16 +91,20 @@ Bu surumde aktif olan network omurgasi:
 - local prediction + reconciliation
 - remote player interpolation
 
+**Phase 3 — Resource Authority ✅:**
+- `INTERACT` mesaji ile hit server'a iletiliyor
+- Server mesafe + aktiflik dogrulamasi yapiyor
+- `ResourceState` (active, health, respawnTimer) Colyseus ile tum client'lara replicate ediliyor
+- Iki oyuncu ayni kaynaga vurursa hasar ortak pool'dan gidiyor
+- Server `INVENTORY_CHANGED` event'i ile onaylanan hit'te yield bildiriyor
+- Kaynak respawn server yonetiyor
+- Offline / tek oyunculu fallback korunuyor
+
 Henuz server-authoritative olmayan kisimlar:
 
-- kaynak toplama
-- hayvan AI ve hasar
-- build placement
-- inventory
-- XP / level / upgrade
-
-Yani su anda multiplayer sadece ortak oyuncu hareketi milestone'unu kapsiyor. Diger gameplay
-sistemleri halen client-local.
+- hayvan AI ve hasar (Phase 4)
+- build placement (Phase 5)
+- inventory, XP, level, upgrade (Phase 6)
 
 ## Oyun Icerigi
 

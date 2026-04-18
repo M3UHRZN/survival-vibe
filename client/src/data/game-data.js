@@ -2,72 +2,10 @@
 // Re-exported here so existing imports across the client don't need to change.
 export { RESOURCE_DEFINITIONS, RESOURCE_SPAWNS } from "@shared/data/resource-spawns.js";
 
-export const ANIMAL_DEFINITIONS = {
-  cow: {
-    label: "Cow",
-    behavior: "flee",
-    maxHealth: 4,
-    walkSpeed: 1.8,
-    fleeSpeed: 4.1,
-    fleeRange: 4.4,
-    roamRadius: 7,
-    meat: 2,
-    xpOnDefeat: 18,
-    respawnTime: 18,
-  },
-  sheep: {
-    label: "Sheep",
-    behavior: "flee",
-    maxHealth: 3,
-    walkSpeed: 2.1,
-    fleeSpeed: 4.6,
-    fleeRange: 4.8,
-    roamRadius: 7,
-    meat: 1,
-    xpOnDefeat: 15,
-    respawnTime: 16,
-  },
-  wolf: {
-    label: "Wolf",
-    behavior: "aggressive",
-    maxHealth: 5,
-    walkSpeed: 2.2,
-    chaseSpeed: 4.3,
-    aggroRange: 6.3,
-    attackRange: 1.7,
-    damage: 9,
-    attackCooldown: 1.2,
-    roamRadius: 8,
-    meat: 2,
-    xpOnDefeat: 24,
-    respawnTime: 20,
-  },
-  bear: {
-    label: "Bear",
-    behavior: "aggressive",
-    maxHealth: 8,
-    walkSpeed: 1.7,
-    chaseSpeed: 3.4,
-    aggroRange: 7.5,
-    attackRange: 2.1,
-    damage: 16,
-    attackCooldown: 1.45,
-    roamRadius: 9,
-    meat: 4,
-    xpOnDefeat: 40,
-    respawnTime: 24,
-  },
-};
+// ANIMAL_DEFINITIONS and ANIMAL_SPAWNS are now authoritative in shared/.
+// Re-exported here so existing imports across the client don't need to change.
+export { ANIMAL_DEFINITIONS, ANIMAL_SPAWNS } from "@shared/data/animal-spawns.js";
 
-export const ANIMAL_SPAWNS = [
-  { type: "cow", position: [-9, 0, -3] },
-  { type: "cow", position: [5, 0, 9] },
-  { type: "sheep", position: [-3, 0, 8] },
-  { type: "sheep", position: [11, 0, -4] },
-  { type: "wolf", position: [2, 0, -6] },
-  { type: "wolf", position: [-12, 0, 10] },
-  { type: "bear", position: [10, 0, 1] },
-];
 
 export const UPGRADE_DEFINITIONS = [
   {
