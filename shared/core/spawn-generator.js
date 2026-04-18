@@ -1,19 +1,18 @@
-// buildResourceSpawns is now defined in shared/ so the server can use the same
-// deterministic algorithm to generate identical resource IDs.
-// buildAnimalSpawns stays client-local until Phase 4 (Animal Authority).
-export { buildResourceSpawns } from "@shared/core/spawn-generator.js";
+// Deterministic resource spawn generator using a seeded LCG (Linear Congruential Generator).
+// Both server and client call buildResourceSpawns() with the same seed/parameters to produce
+// the exact same spawn list.  Resource ID == array index — never reorder the output.
 
-import { ANIMAL_SPAWNS } from "../data/game-data.js";
+import { RESOURCE_SPAWNS } from "../data/resource-spawns.js";
+import { WORLD_LIMIT } from "../constants/gameplay.js";
 
-export function buildAnimalSpawns(worldLimit) {
-  const rng = createSeededRandom(4401);
-  const spawns = [...ANIMAL_SPAWNS];
-  const occupied = ANIMAL_SPAWNS.map((spawn) => [spawn.position[0], spawn.position[2]]);
+export function buildResourceSpawns(worldLimit = WORLD_LIMIT) {
+  const rng = createSeededRandom(1307);
+  const spawns = [...RESOURCE_SPAWNS];
+  const occupied = RESOURCE_SPAWNS.map((spawn) => [spawn.position[0], spawn.position[2]]);
 
-  addScatterSpawns(spawns, occupied, rng, "cow", 5, 8, worldLimit - 4, 4.5, worldLimit);
-  addScatterSpawns(spawns, occupied, rng, "sheep", 5, 7, worldLimit - 4, 4.2, worldLimit);
-  addScatterSpawns(spawns, occupied, rng, "wolf", 4, 10, worldLimit - 3, 5.4, worldLimit);
-  addScatterSpawns(spawns, occupied, rng, "bear", 2, 14, worldLimit - 3, 7.8, worldLimit);
+  addScatterSpawns(spawns, occupied, rng, "tree", 28, 7, worldLimit - 3, 3.2, worldLimit);
+  addScatterSpawns(spawns, occupied, rng, "rock", 18, 9, worldLimit - 2, 3.1, worldLimit);
+  addScatterSpawns(spawns, occupied, rng, "gold", 10, 12, worldLimit - 2, 4.4, worldLimit);
 
   return spawns;
 }
@@ -26,10 +25,7 @@ function addScatterSpawns(spawns, occupied, rng, type, count, minRadius, maxRadi
     }
 
     occupied.push(position);
-    spawns.push({
-      type,
-      position: [position[0], 0, position[1]],
-    });
+    spawns.push({ type, position: [position[0], 0, position[1]] });
   }
 }
 

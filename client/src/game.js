@@ -53,6 +53,8 @@ export class GameApp {
     this.network = new NetworkClient({
       windowRef: this.windowRef,
       onStatusChange: ({ label }) => this.hud.setNetworkStatus(label),
+      onInventoryChanged: (data) => this.handleInventoryChanged(data),
+      onResourceStateChange: (snapshots) => this.world.syncResourceStates(snapshots),
     });
     this.hud.setNetworkStatus("Offline");
 
@@ -204,41 +206,73 @@ export class GameApp {
     this.state.actionCooldown = BASE_ACTION_INTERVAL / this.state.attackSpeed;
     this.state.swingTime = 0.2;
 
-    const result = this.world.interact(this.player.position, {
-      nodeDamage: this.state.nodeDamage,
-      animalDamage: this.state.animalDamage,
-    });
+    const target = this.world.findNearestTarget(this.player.position);
 
-    if (!result) {
+    if (!target) {
       this.setStatus("Nothing in range.");
       return;
     }
 
-    if (result.kind === "resource") {
-      const yieldAmount = getResourceYield(this.state, result.resourceType);
-      this.state.inventory[result.drop] += yieldAmount;
-      this.gainXp(result.xp);
-
-      if (this.state.mode === "playing") {
-        this.setStatus(`+${yieldAmount} ${result.drop} from ${result.label}.`);
-      }
-
+    if (target.kind === "resource") {
+      this.handleResourceInteract(target);
       return;
     }
+
+    // Animal hit — still client-local (Phase 4 will move this to server).
+    const result = target.entity.hit(this.state.animalDamage);
 
     if (!result.killed) {
-      if (this.state.mode === "playing") {
-        this.setStatus(`Hit ${result.label}.`);
-      }
+      this.setStatus(`Hit ${target.label}.`);
       return;
     }
 
-    const meatAmount = result.meat + this.state.meatYield;
+    const meatAmount = target.entity.definition.meat + this.state.meatYield;
     this.state.inventory.meat += meatAmount;
-    this.gainXp(result.xp);
+    this.gainXp(target.entity.definition.xpOnDefeat);
+    this.setStatus(`Defeated ${target.label}: +${meatAmount} meat.`);
+  }
+
+  handleResourceInteract(target) {
+    if (this.network.isConnected()) {
+      // Server-authoritative path: send INTERACT, wait for INVENTORY_CHANGED.
+      this.network.sendInteract(target.entity.id, this.state.nodeDamage);
+      this.setStatus(`Gathering ${target.entity.label}...`);
+      return;
+    }
+
+    // Offline / single-player fallback — apply hit and yield locally.
+    const result = target.entity.hit(this.state.nodeDamage);
+    const yieldAmount = getResourceYield(this.state, target.entity.type);
+    const def = target.entity.definition;
+
+    this.state.inventory[def.drop] += yieldAmount;
+    this.gainXp(def.xpPerHit);
+    this.setStatus(`+${yieldAmount} ${def.drop} from ${target.entity.label}.`);
+
+    if (result.depleted) {
+      this.setStatus(`${target.entity.label} depleted.`);
+    }
+  }
+
+  // Called when server confirms a resource hit and grants a yield.
+  handleInventoryChanged(data) {
+    const { drop, baseAmount, xp, resourceType } = data;
+
+    if (!drop || !(drop in this.state.inventory)) {
+      return;
+    }
+
+    // Server grants base 1; client applies its own yield multiplier on top
+    // (until Phase 6 moves progression to server).
+    const yieldAmount = baseAmount * getResourceYield(this.state, resourceType || "tree");
+    this.state.inventory[drop] += yieldAmount;
+
+    if (xp) {
+      this.gainXp(xp);
+    }
 
     if (this.state.mode === "playing") {
-      this.setStatus(`Defeated ${result.label}: +${meatAmount} meat.`);
+      this.setStatus(`+${yieldAmount} ${drop}.`);
     }
   }
 

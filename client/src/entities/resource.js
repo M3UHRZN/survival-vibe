@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { stampShadows } from "../utils/scene-utils.js";
 
 export class ResourceNode {
-  constructor(spawn, definition) {
+  constructor(spawn, definition, id = 0) {
+    this.id = id;
     this.type = spawn.type;
     this.definition = definition;
     this.group = new THREE.Group();
@@ -29,11 +30,15 @@ export class ResourceNode {
     this.group.rotation.set(0, 0, 0);
   }
 
-  update(delta, elapsedTime) {
+  update(delta, elapsedTime, serverDriven = false) {
     if (!this.active) {
-      this.respawnRemaining -= delta;
-      if (this.respawnRemaining <= 0) {
-        this.reset();
+      if (!serverDriven) {
+        // Local respawn countdown — only used in offline / single-player fallback.
+        // When connected, the server drives respawn via state replication.
+        this.respawnRemaining -= delta;
+        if (this.respawnRemaining <= 0) {
+          this.reset();
+        }
       }
       return;
     }
@@ -44,6 +49,20 @@ export class ResourceNode {
     }
 
     this.group.rotation.z = Math.sin(elapsedTime * 1.5 + this.home.x) * 0.02;
+  }
+
+  // Apply server-replicated state.  Called by WorldManager.syncResourceStates().
+  syncState(serverActive, serverHealth) {
+    if (serverActive && !this.active) {
+      // Resource respawned — restore full visual state.
+      this.reset();
+    } else if (!serverActive && this.active) {
+      // Resource depleted by server.
+      this.active = false;
+      this.group.visible = false;
+    }
+
+    this.health = serverHealth;
   }
 
   hit(damage) {

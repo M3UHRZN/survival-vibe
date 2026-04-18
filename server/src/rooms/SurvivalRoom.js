@@ -1,5 +1,4 @@
 import { Room } from "colyseus";
-import { WORLD_LIMIT } from "../../../shared/constants/gameplay.js";
 import {
   MAX_ROOM_SIZE,
   SERVER_TICK_RATE,
@@ -9,20 +8,23 @@ import { normalizeMoveMessage } from "../../../shared/messages/move-message.js";
 import { PlayerState } from "../state/player-state.js";
 import { SurvivalState } from "../state/survival-state.js";
 import { MovementSystem } from "../systems/movement-system.js";
+import { ResourceSystem } from "../systems/resource-system.js";
 
 export class SurvivalRoom extends Room {
   maxClients = MAX_ROOM_SIZE;
   state = new SurvivalState();
   movementSystem = new MovementSystem();
+  resourceSystem = new ResourceSystem();
   playerInputs = new Map();
-
 
   onCreate(options = {}) {
     this.state.tick = 0;
     this.state.worldSeed = Number.isInteger(options.worldSeed) ? options.worldSeed : 1;
 
-    // Colyseus 0.17: register message handlers inside onCreate via this.onMessage()
-    // The `messages = {}` property shorthand is a 0.15 pattern and is not supported in 0.17.
+    // Populate server-authoritative resource state before any client joins.
+    this.resourceSystem.initResources(this.state.resources);
+
+    // Colyseus 0.17: register message handlers inside onCreate via this.onMessage().
     this.onMessage(CLIENT_MESSAGE_TYPES.MOVE, (client, payload) => {
       const current = this.playerInputs.get(client.sessionId) || normalizeMoveMessage();
       const next = normalizeMoveMessage(payload);
@@ -32,6 +34,15 @@ export class SurvivalRoom extends Room {
       }
 
       this.playerInputs.set(client.sessionId, next);
+    });
+
+    this.onMessage(CLIENT_MESSAGE_TYPES.INTERACT, (client, payload) => {
+      this.resourceSystem.handleInteract(
+        this.state.resources,
+        client,
+        payload,
+        this.state.players,
+      );
     });
 
     this.setSimulationInterval(
@@ -65,6 +76,8 @@ export class SurvivalRoom extends Room {
     this.state.players.forEach((player, sessionId) => {
       this.movementSystem.stepPlayer(player, this.playerInputs.get(sessionId), deltaSeconds);
     });
+
+    this.resourceSystem.tick(this.state.resources, deltaSeconds);
 
     this.state.tick += 1;
   }

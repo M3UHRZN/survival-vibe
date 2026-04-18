@@ -4,18 +4,30 @@ import {
   ROOM_NAME,
   SERVER_PORT,
 } from "@shared/constants/network.js";
-import { CLIENT_MESSAGE_TYPES } from "@shared/messages/message-types.js";
+import {
+  CLIENT_MESSAGE_TYPES,
+  SERVER_MESSAGE_TYPES,
+} from "@shared/messages/message-types.js";
 import { createMoveMessage } from "@shared/messages/move-message.js";
+import { createInteractMessage } from "@shared/messages/interact-message.js";
 
 export class NetworkClient {
-  constructor({ windowRef = window, onStatusChange = null } = {}) {
+  constructor({
+    windowRef = window,
+    onStatusChange = null,
+    onInventoryChanged = null,
+    onResourceStateChange = null,
+  } = {}) {
     this.windowRef = windowRef;
     this.onStatusChange = onStatusChange;
+    this.onInventoryChanged = onInventoryChanged;
+    this.onResourceStateChange = onResourceStateChange;
 
     this.client = null;
     this.room = null;
     this.callbacks = null;
     this.playerSnapshots = new Map();
+    this.resourceSnapshots = new Map();
     this.sessionId = null;
     this.sequence = 0;
     this.lastInputSentAt = Number.NEGATIVE_INFINITY;
@@ -92,6 +104,21 @@ export class NetworkClient {
     );
   }
 
+  // Send an interact intent for a specific resource node.
+  // targetId     — resource index (same as server MapSchema key)
+  // nodeDamage   — player's current nodeDamage stat (trusted until Phase 6)
+  sendInteract(targetId, nodeDamage = 1) {
+    if (!this.room) {
+      return;
+    }
+
+    this.sequence += 1;
+    this.room.send(
+      CLIENT_MESSAGE_TYPES.INTERACT,
+      createInteractMessage({ targetId, nodeDamage, seq: this.sequence }),
+    );
+  }
+
   getLocalPlayerSnapshot() {
     if (!this.sessionId) {
       return null;
@@ -104,7 +131,12 @@ export class NetworkClient {
     return [...this.playerSnapshots.values()];
   }
 
+  getResourceSnapshots() {
+    return this.resourceSnapshots;
+  }
+
   bindRoomCallbacks() {
+    // Player state replication
     this.callbacks.onAdd("players", (player, sessionId) => {
       const syncSnapshot = () => {
         this.playerSnapshots.set(sessionId, snapshotPlayer(sessionId, player));
@@ -117,6 +149,29 @@ export class NetworkClient {
     this.callbacks.onRemove("players", (_player, sessionId) => {
       this.playerSnapshots.delete(sessionId);
     });
+
+    // Resource state replication
+    this.callbacks.onAdd("resources", (resource, key) => {
+      this.resourceSnapshots.set(key, snapshotResource(resource));
+      this._emitResourceStateChange();
+
+      this.callbacks.onChange(resource, () => {
+        this.resourceSnapshots.set(key, snapshotResource(resource));
+        this._emitResourceStateChange();
+      });
+    });
+
+    // Server → client inventory grant events
+    this.room.onMessage(SERVER_MESSAGE_TYPES.INVENTORY_CHANGED, (data) => {
+      if (this.onInventoryChanged) {
+        this.onInventoryChanged(data);
+      }
+    });
+
+    // Server → client rejection events (logged for debugging)
+    this.room.onMessage(SERVER_MESSAGE_TYPES.ACTION_REJECTED, (data) => {
+      console.warn("[network] action rejected:", data.reason);
+    });
   }
 
   clearRoom() {
@@ -127,6 +182,7 @@ export class NetworkClient {
     this.room = null;
     this.callbacks = null;
     this.playerSnapshots.clear();
+    this.resourceSnapshots.clear();
     this.sessionId = null;
     this.sequence = 0;
     this.lastInputSentAt = Number.NEGATIVE_INFINITY;
@@ -135,6 +191,12 @@ export class NetworkClient {
   setStatus(kind, label) {
     if (this.onStatusChange) {
       this.onStatusChange({ kind, label });
+    }
+  }
+
+  _emitResourceStateChange() {
+    if (this.onResourceStateChange) {
+      this.onResourceStateChange(this.resourceSnapshots);
     }
   }
 }
@@ -147,6 +209,13 @@ function snapshotPlayer(sessionId, player) {
     y: Number(player.y || 0),
     z: Number(player.z || 0),
     rotation: Number(player.rotation || 0),
+  };
+}
+
+function snapshotResource(resource) {
+  return {
+    active: Boolean(resource.active),
+    health: Number(resource.health || 0),
   };
 }
 
